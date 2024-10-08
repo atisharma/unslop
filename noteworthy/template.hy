@@ -126,7 +126,6 @@ Apply LLM prompts to strings, files, or stdin.
         log (Path out-directory (+ template_name ".log"))]
     (mkdir out-directory)
     (spit log (+ (now) "\n"))
-    (print "\n\n\n\n\n\n\n")
     (for [[n f] (enumerate (filenames in-directory))]
       (try
         (let [j (jload f)
@@ -147,6 +146,7 @@ Apply LLM prompts to strings, files, or stdin.
             (progress
               (.join "\n"
                 (+ ["source: {source}"
+                    "client: {client}"
                     "id: {id}, chunk {n}"
                     "in tokens: {length}"
                     "out tokens: {out}"
@@ -157,6 +157,7 @@ Apply LLM prompts to strings, files, or stdin.
                     "skipped: {skipped}"]
                    (lfor [k v] (.items output-dict)
                      f"{k}: {v}")))
+              :client client
               :n n
               :out output-length
               :total total
@@ -170,7 +171,9 @@ Apply LLM prompts to strings, files, or stdin.
             (spit log f"Wrote {f}\n" :mode "a"))
         (except [e [Exception]]
           (+= failed 1)
-          (spit log f"Error {f}: {(repr e)}\n" :mode "a"))))))
+          (spit log f"Error {f}: {(repr e)}\n" :mode "a")
+          (print f"Error {f}: {(repr e)}\n"))))
+    (print "\n\n\n\n\n\n\n")))
 
 (defn nw []
   "Load a config file that defines templates (first arg).

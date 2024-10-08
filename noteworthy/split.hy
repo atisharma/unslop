@@ -95,7 +95,6 @@ The split function does the same for either a file or all files under the given 
         log (Path out-directory (+ fname-or-directory ".log"))]
     (mkdir out-directory)
     (spit log (+ (now) "\n"))
-    (print "\n\n\n\n\n")
     (for [[n j] (enumerate (split fname-or-directory :length length))]
       (try
         (+= total (:length j))
@@ -115,4 +114,5 @@ The split function does the same for either a file or all files under the given 
         (jsave j (Path out-directory (+ (:id j) ".json")))
         (except [e [Exception]]
           (+= failed 1)
-          (spit log f"Error: {(repr e)}\n" :mode "a"))))))
+          (spit log f"Error: {(repr e)}\n" :mode "a"))))
+    (print "\n\n\n\n\n")))
