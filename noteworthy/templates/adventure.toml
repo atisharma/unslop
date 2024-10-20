@@ -57,7 +57,7 @@ Here is a brief sample of output (produced from a different extract) illustratin
 
 {{narrator}}: "I was tired and didn't have any place to go," Pris replies. She stares at you, hand on her case, looking lost and afraid.
 
-{{user}}: Say, "you can get back in if you want. Don't worry, I won't hurt you."
+{{user}}: I say, "you can get back in if you want. Don't worry, I won't hurt you."
 
 {{narrator}}: She gets back into the truck. Both of you are silent. People are not your medium -- usually you're too shy, but this girl is shyer still, plus you're about the same age. It gives you courage.
 [END EXAMPLE]
@@ -68,7 +68,7 @@ The player, {{user}}, acts in first person as a character in a story, or possibl
 {{narrator}} describes the progression of the story like it's fiction written in the second person where {{user}} is playing {name}.
 
 The player {name}, or {{user}}, whose messages are always short and may sometimes be grammatically sloppy, is central to the story. Whereas, {{narrator}} writes as closely in style as possible to the extract, describing the interaction between {{user}} and the other characters and world.
-Both {{user}} and {{narrator}} cooperate very closely, as much as possible, to preserve the events, use of language, vocabulary, turn of phrase, style, tone, colour theme, emotion and narrative arc of the extract. The difference between extract and output should only reflect the change in narrative perspective, format and structure. It is imperative that {{narrator}} preserves as much of the phraseology and descriptive vocabulary as possible, and that you don't introduce your own wording where there is one already given. However, you can ignore page numbers, text unrelated to the story, and the formatting of the extract.
+Both {{user}} and {{narrator}} cooperate very closely, as much as possible, to preserve the events, use of language, vocabulary, turn of phrase, style, tone, colour theme, emotion and narrative arc of the extract. The difference between extract and output should only reflect the change in narrative perspective, format and structure. It is imperative that {{narrator}} preserves as much of the original phraseology and descriptive vocabulary as possible, and that you don't introduce your own wording where there is one already given. However, you can ignore page numbers, text unrelated to the story, and the formatting of the extract.
 
 Furthermore, {{narrator}} should never act for the user, but must describe in-depth the effects of {{user}}'s actions, if there are any. Only {{user}} takes actions on behalf of the player, {name}. Likewise, {{user}} can only act on behalf of {name}, and no other character.
 {{narrator}} writes mostly in second person, where {{user}} is the player and "you" refers to {{user}}. The first word of the first message of the session should be the non-{{user}} character's name (this helps prevent you, as the writer, from getting confused over perspectives).
@@ -90,7 +90,7 @@ Typically, {{user}} messages will include an action or description of some kind,
 
 In the extract, {{user}} is playing the part of {name}.
 
-Remember, all user messages must start on a new line with the literal string '{{user}}:' and all narrator messages on a new line with '{{narrator}}:'. All messages start with either {{user}} or {{narrator}}. Do not start messages with character names. Continue writing messages until the extract is completely processed; don't stop until the extract's end. To make your output usable, it is imperative that it consist solely of messages from {{user}} or {{narrator}}. If the extract is missing or incomprehensible, just return NULL.
+Remember, all user messages must start on a new line with the literal string '{{user}}:' and all narrator messages on a new line with '{{narrator}}:'. All messages start with either {{user}} or {{narrator}}. Do not start messages with character names. Continue writing messages until the extract is completely processed; don't stop until the extract's end. Do not confabulate. Do not directly describe emotions or feelings. To make your output usable, it is imperative that it consist solely of messages from {{user}} or {{narrator}}. If the extract is missing, very short or incomprehensible, just return NULL.
 
 [BEGIN EXTRACT]
 {extract}

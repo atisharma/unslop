@@ -16,6 +16,9 @@ Load and process parquet (or other) files with duckdb.
 (import noteworthy.embeddings [token-count])
 
 
+(defclass DbError [RuntimeError])
+
+
 (defn duck-load [files * [query "SELECT * FROM read_parquet('{files}')"]]
   "Load parquet files (or other SQL query) and
   give a generator over rows returned.
@@ -79,7 +82,6 @@ Load and process parquet (or other) files with duckdb.
         failed 0
         log (Path out-directory "spit-from-parquet.log")]
     (mkdir out-directory)
-    (spit log (+ (now) "\n"))
     (print "\n\n\n\n\n")
     (for [[n batch] (enumerate (chunk-parquet files field :rows rows))]
       (try
@@ -102,6 +104,6 @@ Load and process parquet (or other) files with duckdb.
             :total total
             :failed failed)
           (jsave j (Path out-directory (+ (:id j) ".json"))))
-        (except [e [Exception]]
+        (except [e [RuntimeError]]
           (+= failed 1)
-          (spit log f"Error: {(repr e)}\n" :mode "a"))))))
+          (spit log f"{(now)} Error: {(repr e)}\n" :mode "a"))))))

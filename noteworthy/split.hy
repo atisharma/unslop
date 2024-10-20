@@ -15,7 +15,8 @@ The split function does the same for either a file or all files under the given 
                 progress
                 short-id now filenames
                 mkdir
-                jsave slurp spit])
+                jsave
+                blog slurp])
 
 (import re)
 (import json)
@@ -94,7 +95,6 @@ The split function does the same for either a file or all files under the given 
         failed 0
         log (Path out-directory (+ fname-or-directory ".log"))]
     (mkdir out-directory)
-    (spit log (+ (now) "\n"))
     (for [[n j] (enumerate (split fname-or-directory :length length))]
       (try
         (+= total (:length j))
@@ -114,5 +114,5 @@ The split function does the same for either a file or all files under the given 
         (jsave j (Path out-directory (+ (:id j) ".json")))
         (except [e [Exception]]
           (+= failed 1)
-          (spit log f"Error: {(repr e)}\n" :mode "a"))))
+          (blog log e))))
     (print "\n\n\n\n\n")))

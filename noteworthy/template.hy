@@ -5,63 +5,26 @@ Apply LLM prompts to strings, files, or stdin.
 (require hyjinx.macros [defmethod lmap])
 
 (import sys)
-(import os)
-(import platformdirs [user-config-dir])
 (import pathlib [Path])
 (import jinja2)
 
-(import hyjinx [llm config
+(import hyjinx [llm
+                config
                 inc first
                 progress
-                now filenames
+                filenames
+                now
                 mkdir
-                spit slurp
+                spit slurp blog
                 extract-json jload jsave])
 
 
-(import pansi [ansi])
-
 (import noteworthy.embeddings [token-count])
+(import noteworthy.util [file-exists find-toml-file load-config chat-client])
 
 
 (defclass TemplateError [RuntimeError])
 
-(defn file-exists [path]
-  "Return Path object if it exists as a file, otherwise None."
-  (when (.exists path)
-    path))
-
-(defn find-toml-file [#^ str name]
-  "Locate a toml file.
-  It will look under, in order:
-    `~/.config/noteworthy/`
-    `$pwd/templates`
-    `$module_dir/templates`
-  "
-  (let [fname (+ name ".toml")]
-    (or
-      (file-exists (Path (user-config-dir "noteworthy") fname))
-      (file-exists (Path "templates" fname))
-      (file-exists (Path (os.path.dirname __file__) "templates" fname))
-      (raise (FileNotFoundError fname)))))
-
-(defn load-config [#^ str [fname "config"]]
-  "Load a config file.
-  Defaults to `.config/noteworthy/config.toml`.
-  See `find-toml-file` for search order."
-  (config (find-toml-file fname)))
-
-(defn chat-client [#^ str client]
-  (let [client-cfg (get (load-config) client)
-        provider (.pop client-cfg "provider")
-        model (.pop client-cfg "model" None)
-        client (match provider
-                 "anthropic" (llm.Anthropic #** client-cfg)
-                 "openai" (llm.OpenAI #** client-cfg)
-                 "tabby" (llm.TabbyClient #** client-cfg))]
-    (when model
-      (llm.model-load client model))
-    client))
 
 (defn load-template-str [#^ str config-file #^ str template-name]
   "Load a template with name `config-file.toml` from the config directory."
@@ -125,7 +88,6 @@ Apply LLM prompts to strings, files, or stdin.
         skipped 0
         log (Path out-directory (+ template_name ".log"))]
     (mkdir out-directory)
-    (spit log (+ (now) "\n"))
     (for [[n f] (enumerate (filenames in-directory))]
       (try
         (let [j (jload f)
@@ -134,7 +96,7 @@ Apply LLM prompts to strings, files, or stdin.
                        (apply client config-file template-name :llm-args llm-args #** j)
                        (do
                          (+= skipped 1)
-                         (spit log f"Skipped {f}: {template-name} exists\n" :mode "a")
+                         (blog log f"Skipped {f}: {template-name} exists")
                          (continue)))
               output-length (token-count output)
               json-output (extract-json output)
@@ -168,14 +130,8 @@ Apply LLM prompts to strings, files, or stdin.
               :skipped skipped
               #** j)
             (jsave {#** j template-name output #** json-output} (Path out-directory (+ (:id j) ".json")))
-            (spit log f"Wrote {f}\n" :mode "a"))
+            (blog log f"Wrote {f}"))
         (except [e [Exception]]
           (+= failed 1)
-          (spit log f"Error {f}: {(repr e)}\n" :mode "a")
-          (print f"Error {f}: {(repr e)}\n"))))
+          (blog log f e))))
     (print "\n\n\n\n\n\n\n")))
-
-(defn nw []
-  "Load a config file that defines templates (first arg).
-  Apply the named template (second arg) to stdin, which will replace `{{stdin}}` in the template."
-  (apply-template (get sys.argv 1) (get sys.argv 2) :stdin (sys.stdin.read)))
