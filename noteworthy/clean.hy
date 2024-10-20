@@ -20,6 +20,7 @@ Data preparation: functions that clean strings and datasets / message lists.
 (let [sloplists (tomllib.loads (slurp (Path (. (Path __file__) parent) "slop.toml")))]
   (setv slop (:antislop sloplists)))
 
+
 ;; * Pipelines
 ;; -----------------------------------------------------------------------------
 
@@ -46,6 +47,7 @@ Data preparation: functions that clean strings and datasets / message lists.
                   [in-key "extract"] [out-key "perspective"]
                   [extract-quality ["good" "excellent" "outstanding"]]
                   [rating ["good" "excellent" "outstanding"]]
+                  [bbfc-rating ["U" "PG" "12" "15" "18" "R18" "BAN"]]
                   [slop-threshold 1.3]]
   "The full cleaning pipeline applied to all json files in a directory.
   Consolidates them into a jsonl file."
@@ -54,30 +56,35 @@ Data preparation: functions that clean strings and datasets / message lists.
       (let [j (jload f)
             q (:extract-quality j "unrated")
             r (:rating j "unrated")
+            bbfc (:bbfc-rating j "unrated")
             out-value (.get j out-key "")
-            score (if out-value
-                    (slop-score j :in-key in-key :out-key out-key)
-                    Inf)]
+            score (slop-score j :in-key in-key :out-key out-key)
+            approve (and out-value
+                         (< score slop-threshold)
+                         (in r rating)
+                         (in q extract-quality)
+                         (in bbfc bbfc-rating))]
         (progress (.join "\n"
                     ["{in_dir} -> {out_fname}"
                      "id: {id}, chunk {n}"
-                     "quality {q}"
-                     "rating {r}"
-                     "slop {score: 4.2f}"])
+                     "quality: {q}"
+                     "rating: {r}"
+                     "BBFC: {bbfc}"
+                     "score: {score: 4.2f}"
+                     "approved: {approve}"])
                   :in-dir in-directory
                   :out-fname out-fname
-                  :n n :q q :r r
+                  :n n :q q :r r :bbfc bbfc
                   :id (:id j None)
-                  :score score)
-        (when (and out-value
-                   (in r rating)
-                   (in q extract-quality)
-                   (< score slop-threshold))
+                  :score score
+                  :approve approve)
+        ;; defer slop calculation because it's the slowest step
+        (when approve
           ;; It is inefficient to open the file again each time
           ;; to write to it, but if your datasets are <10K or so
           ;; lines, it doesn't really matter.
           (jsonl-append out-fname (clean out-value))))
-      (except [e [Exception]]))))
+      (except [e [json.JSONDecodeError]]))))
 
 ;; * write output
 ;; -----------------------------------------------------------------------------
