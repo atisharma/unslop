@@ -2,8 +2,9 @@
 Data preparation: functions that clean strings and datasets / message lists.
 "
 
-(require hyrule [of -> ->>]) 
-(require hyjinx [defmethod])
+(require hyrule [of unless
+                 -> ->>]) 
+(require hyjinx [defmethod rest])
 
 (import hyjinx [first last
                 progress
@@ -35,13 +36,14 @@ Data preparation: functions that clean strings and datasets / message lists.
     (* 2 (/ (+ 10 out-count)
             (+ 1e-2 in-count out-count)))))
 
-(defmethod clean [#^ str s]
+(defmethod clean [#^ str s * [first-speaker "{user}:"] [second-speaker "{narrator}:"]]
   "The full cleaning pipeline (str->str)."
   (-> s
     defence
-    alternate-speaker
+    (alternate-speaker)
     str-to-messages
-    sharegpt))
+    sharegpt
+    start-end-speaker))
 
 (defmethod clean [#^ str in-directory #^ str out-fname *
                   [in-key "extract"] [out-key "perspective"]
@@ -58,9 +60,7 @@ Data preparation: functions that clean strings and datasets / message lists.
             r (:rating j "unrated")
             bbfc (:bbfc-rating j "unrated")
             out-value (.get j out-key "")
-            score (slop-score j :in-key in-key :out-key out-key)
             approve (and out-value
-                         (< score slop-threshold)
                          (in r rating)
                          (in q extract-quality)
                          (in bbfc bbfc-rating))]
@@ -70,21 +70,22 @@ Data preparation: functions that clean strings and datasets / message lists.
                      "quality: {q}"
                      "rating: {r}"
                      "BBFC: {bbfc}"
-                     "score: {score: 4.2f}"
                      "approved: {approve}"])
                   :in-dir in-directory
                   :out-fname out-fname
                   :n n :q q :r r :bbfc bbfc
                   :id (:id j None)
-                  :score score
                   :approve approve)
         ;; defer slop calculation because it's the slowest step
-        (when approve
+        ;; using short-circuit property of and
+        (when (and approve
+                   (< (slop-score j :in-key in-key :out-key out-key) slop-threshold))
           ;; It is inefficient to open the file again each time
           ;; to write to it, but if your datasets are <10K or so
           ;; lines, it doesn't really matter.
-          (jsonl-append out-fname (clean out-value))))
-      (except [e [json.JSONDecodeError]]))))
+          (jsonl-append f"{out-fname}.jsonl" (clean out-value))
+          (jsonl-append f"{out-fname}_{bbfc}.jsonl" (clean out-value))))
+      (except [e [json.JSONDecodeError IndexError Exception]]))))
 
 ;; * write output
 ;; -----------------------------------------------------------------------------
@@ -104,37 +105,16 @@ Data preparation: functions that clean strings and datasets / message lists.
       :if (not (.startswith (.strip l) "```"))
       l)))
 
-(defmethod alternate-speaker [#^ str s * [first-speaker "{user}:"] [second-speaker "{assistant}:"]]
-  "Ensure `{user}` and `{narrator}` alternate.
-  If a speaker tag is repeated, remove the second occurence."
-  (let [result []
-        is-first-speaker True]
-    (.join "\n"
-      (lfor line (.split s "\n")
-        (cond
-          ;; switch speaker
-          (and is-first-speaker (.startswith line second-speaker))
-          (do
-            (setv is-first-speaker (not is-first-speaker))
-            line)
 
-          ;; switch speaker
-          (and (not is-first-speaker) (.startswith line first-speaker))
-          (do
-            (setv is-first-speaker (not is-first-speaker))
-            line)
-
-          ;; repeated first speaker
-          (and is-first-speaker (.startswith line first-speaker))
-          (last (.partition first-speaker line))
-          
-          ;; repeated second speaker
-          (and (not is-first-speaker) (.startswith line second-speaker))
-          (last (.partition second-speaker line))
-          
-          ;; continued line
-          :else
-          line)))))
+(defmethod alternate-speaker [#^ str s]
+  (let [pattern (re.compile r"(\{(user|narrator)\}:.*?)(\n\1:.*?)(?=\n(\{(?:user|narrator)\}:))" re.DOTALL)]
+    (while True
+      (setv new-s (pattern.sub r"\1\n\n\2" s))
+      (when (= new-s s)
+        (break))
+      (setv s new-s))
+    s))
+  
 
 (defmethod slop-count [#^ str s]
   "Number of matches against slop phrases."
@@ -161,6 +141,27 @@ Data preparation: functions that clean strings and datasets / message lists.
     (lfor msg messages
       (dfor [k v] (.items msg) k (.strip v)))))
                                                  
+(defmethod start-end-speaker [#^ (of list dict) messages]
+  "Ensure the first speaker (after optional system) is human and last is gpt."
+  (let [human-value "I wait."
+        last-from (:from (last messages))]
+    ;; last message should be gpt
+    (unless (= last-from "gpt")
+      (setv messages (cut messages 0 -1)))
+    (let [first-from (:from (first messages))
+          second-from (:from (get messages 1))]
+      ;; first message should be human or system
+      (if (= first-from "system")
+        (if (= second-from "human")
+          messages
+          [(first messages) ; system msg
+           {"from" "human" "value" human-value} ; insert human message
+           #* (rest messages)])
+        (if (= first-from "gpt")
+          [{"from" "human" "value" human-value} ; insert human message
+           #* messages]
+          messages)))))
+
 (defmethod sharegpt [#^ (of list dict) messages]
   "Translate from OpenAI's user/assistant roles
   to the human/gpt sharegpt format."
@@ -170,4 +171,3 @@ Data preparation: functions that clean strings and datasets / message lists.
       "user" {"from" "human" "value" (:content m)}
       "assistant" {"from" "gpt" "value" (:content m)}
       "narrator" {"from" "gpt" "value" (:content m)})))
- 
